@@ -1,13 +1,18 @@
-import type { SourceRecord, StageId } from "@/types";
+import type { SourceRecord, StageId, ExtractedIntent } from "@/types";
 import { CONNECTORS } from "@/lib/collection-engine";
+import { PLATFORM_NAMES, type PlatformCategory } from "@/lib/crawler-client";
 import {
   collectFromCorpus,
+  collectHybrid,
   dedupeRecords,
+  fillFields,
   planSourcesForIntent,
   recordConfidence,
   unsupportedFields,
   validateRecord,
+  type CorpusHit,
 } from "@/lib/collect";
+import { buildAnalystBrief } from "@/lib/insights";
 import { extractIntentAI } from "@/lib/server/ai";
 import * as repo from "@/lib/server/repository";
 
@@ -41,11 +46,25 @@ const runState = new Map<
     dropped: number;
     duplicatesRemoved: number;
     connectors: string[];
+    liveMode?: boolean;
+    enabledCategories?: string[];
   }
 >();
 
-export function startPipeline(taskId: string, prompt: string) {
-  runState.set(taskId, { raw: 0, validated: [], dropped: 0, duplicatesRemoved: 0, connectors: [] });
+export function startPipeline(
+  taskId: string,
+  prompt: string,
+  options: { liveMode?: boolean; enabledCategories?: string[] } = {}
+) {
+  runState.set(taskId, {
+    raw: 0,
+    validated: [],
+    dropped: 0,
+    duplicatesRemoved: 0,
+    connectors: [],
+    liveMode: options.liveMode,
+    enabledCategories: options.enabledCategories,
+  });
   repo.setTaskStatus(taskId, "running").catch((e) => console.error("[pipeline] setTaskStatus failed", e));
   runStage(taskId, prompt, 0);
 }
@@ -65,12 +84,17 @@ export async function resumePipeline(taskId: string, prompt: string) {
   if (!task) return;
   const stageIndex = task.stages.findIndex((s) => s.status === "active" || s.status === "pending");
   if (!runState.has(taskId)) {
+    // Rehydrate from the persisted task (live settings live in the Task row), not
+    // from a state object that no longer exists — otherwise a resumed live-mode
+    // task silently downgraded to corpus-only collection.
     runState.set(taskId, {
       raw: task.recordsFound,
       validated: [],
       dropped: 0,
       duplicatesRemoved: task.duplicatesRemoved,
       connectors: task.connectors,
+      liveMode: task.liveMode === true,
+      enabledCategories: task.enabledCategories ?? [],
     });
   }
   runStage(taskId, prompt, Math.max(stageIndex, 0));
@@ -160,57 +184,73 @@ async function completeStage(taskId: string, prompt: string, stageIndex: number)
       state.raw = 0;
       state.validated = [];
     } else {
-      // REAL collection: rank the curated corpus against the intent, searching
-      // only the source layers the user has switched on.
       const enabled = await repo.listEnabledSourceIds();
-      const hits = collectFromCorpus(intent, enabled);
       const now = new Date().toISOString();
       const connectorNames = new Map(CONNECTORS.map((c) => [c.id, c.name]));
-      const records: SourceRecord[] = hits.map((h, i) => {
-        const fields: Record<string, string | number> = {};
-        let filled = 0;
-        for (const f of intent.fields) {
-          let v: string | number | undefined;
-          switch (f) {
-            case "Name": v = h.org.name; break;
-            case "Company": v = h.org.name; break;
-            case "Website": v = h.org.website; break;
-            case "Industry": v = h.org.industry; break;
-            case "Location": v = h.org.location; break;
-            case "Contact Email": v = h.org.contactEmail; break;
-            case "Phone": v = h.org.phone; break;
-            // A column the knowledge base cannot fill stays empty rather than
-            // being filled with something invented.
-            default: v = undefined;
+
+      // Check if live mode is enabled
+      const liveMode = state.liveMode === true;
+      const enabledCategories = state.enabledCategories;
+
+      let records: SourceRecord[] = [];
+      const platformLabel = (p: string) => PLATFORM_NAMES[p] ?? p;
+
+      if (liveMode && enabledCategories && enabledCategories.length > 0) {
+        // HYBRID: corpus + live crawl
+        logs.push(`Live mode on — curated corpus plus live ${enabledCategories.join(", ")} crawlers`);
+        try {
+          const { combined, platformStats, errors } = await collectHybrid(intent, {
+            enabledLayers: enabled,
+            enabledCategories: enabledCategories as PlatformCategory[],
+            maxCorpusResults: 18,
+            maxLivePerPlatform: 50,
+            liveMode: true,
+            taskId,
+          });
+          records = combined.map((r, i) => ({ ...r, taskId, id: r.id || `rec_${taskId.slice(-6)}_${i}` }));
+          state.raw = records.length;
+
+          const corpusCount = records.filter((r) => r.id.startsWith("corpus_")).length;
+          const liveCount = records.length - corpusCount;
+          logs.push(
+            `Retrieved ${records.length} records — ${corpusCount} curated, ${liveCount} from the live web`,
+            ...Object.entries(platformStats)
+              .filter(([, n]) => n > 0)
+              .map(([p, n]) => `+ ${platformLabel(p)}: ${n} records`),
+            ...Object.entries(errors).map(([p, e]) => `! ${platformLabel(p)} failed: ${e}`)
+          );
+          if (liveCount === 0) {
+            logs.push("Live crawlers returned nothing usable — the corpus carried this result");
           }
-          if (v !== undefined && String(v).trim() !== "") {
-            fields[f] = v;
-            filled++;
-          } else {
-            fields[f] = "—";
-          }
+        } catch (err) {
+          logs.push(`Live crawl unavailable, collected from the corpus instead: ${err instanceof Error ? err.message : "Unknown error"}`);
+          const hits = collectFromCorpus(intent, enabled);
+          records = recordsFromHits(hits, intent.fields, connectorNames, taskId, now);
+          state.raw = records.length;
         }
-        return {
-          id: `rec_${taskId.replace(/[^a-z0-9]/gi, "").slice(-6)}_${i}`,
-          taskId,
-          fields,
-          confidence: recordConfidence(h.score, filled, intent.fields.length),
-          sourceName: connectorNames.get(h.connectorId) ?? h.connectorId,
-          sourceUrl: h.org.website,
-          collectedAt: now,
-          flagged: false,
-        };
-      });
-      state.raw = records.length;
-      state.validated = records; // validate stage filters this down
-      const byConnector = new Map<string, number>();
-      for (const h of hits) byConnector.set(h.connectorId, (byConnector.get(h.connectorId) ?? 0) + 1);
-      logs.push(
-        `Retrieved ${records.length} candidate records from curated corpus`,
-        ...[...byConnector.entries()].map(
-          ([cid, n]) => `+ ${connectorNames.get(cid) ?? cid}: ${n} records`
-        )
-      );
+      } else {
+        // CORPUS ONLY (deterministic mode)
+        const hits = collectFromCorpus(intent, enabled);
+        records = recordsFromHits(hits, intent.fields, connectorNames, taskId, now);
+        state.raw = records.length;
+
+        const byConnector = new Map<string, number>();
+        for (const h of hits) byConnector.set(h.connectorId, (byConnector.get(h.connectorId) ?? 0) + 1);
+        const backfilled = hits.filter((h) => h.backfilled).length;
+        logs.push(
+          `Retrieved ${records.length} candidate records from curated corpus`,
+          ...[...byConnector.entries()].map(
+            ([cid, n]) => `+ ${connectorNames.get(cid) ?? cid}: ${n} records`
+          )
+        );
+        if (backfilled > 0) {
+          logs.push(
+            `! ${backfilled} rows had no relevance match and were topped up to keep the table usable — flagged for review`
+          );
+        }
+      }
+
+      state.validated = records;
     }
   } else if (stageId === "validate") {
     // REAL validation against the columns the question asked for. Only records
@@ -259,7 +299,35 @@ async function completeStage(taskId: string, prompt: string, stageIndex: number)
       removed > 0 ? `Removed ${removed} duplicates, ${unique.length} unique remain` : "No duplicates found"
     );
   } else if (stageId === "deliver") {
-    logs.push(`Publishing ${state.validated.length} records`, "Indexing for search & filter");
+    // The deliver stage writes the answer, not just the table: the analyst brief
+    // (headline, top matches, coverage, gaps, next step) is computed from the
+    // exact rows being published and rendered on the task + dataset pages.
+    const task = await repo.getTask(taskId);
+    const recs = state.validated;
+    const sourcesUsed = Array.from(new Set(recs.map((r) => r.sourceName)));
+    const brief = buildAnalystBrief({
+      prompt,
+      records: recs,
+      columns: task?.intent?.fields ?? [],
+      sourcesUsed,
+      intent: task?.intent ?? null,
+    });
+    const flagged = recs.filter((r) => r.flagged).length;
+    const avg = recs.length
+      ? Math.round((recs.reduce((s, r) => s + r.confidence, 0) / recs.length) * 100)
+      : 0;
+
+    logs.push(
+      brief.headline,
+      `${recs.length} rows published from ${sourcesUsed.length} source layer${sourcesUsed.length === 1 ? "" : "s"} · average confidence ${avg}%`,
+      "Analyst brief attached: top matches, column coverage, gaps and a recommended next step",
+      "Indexed for search, filter and CSV/JSON export"
+    );
+    if (flagged > 0) {
+      logs.push(`! ${flagged} row${flagged === 1 ? "" : "s"} flagged for review inside the brief`);
+    } else if (recs.length > 0) {
+      logs.push("No rows flagged — the table passed validation clean");
+    }
   }
 
   runState.set(taskId, state);
@@ -283,36 +351,12 @@ async function finalizePipeline(taskId: string, prompt: string) {
     const hits = collectFromCorpus(task.intent, enabled);
     const now = new Date().toISOString();
     const connectorNames = new Map(CONNECTORS.map((c) => [c.id, c.name]));
-    const rebuilt: typeof records = hits.map((h, i) => {
-      const fields: Record<string, string | number> = {};
-      for (const f of task.intent!.fields) {
-        const v =
-          f === "Name" || f === "Company" ? h.org.name
-          : f === "Website" ? h.org.website
-          : f === "Industry" ? h.org.industry
-          : f === "Location" ? h.org.location
-          : f === "Contact Email" ? h.org.contactEmail
-          : f === "Phone" ? h.org.phone
-          : "—";
-        fields[f] = v;
-      }
-      const conf = recordConfidence(h.score, task.intent!.fields.length, task.intent!.fields.length);
-      return {
-        id: `rec_${taskId.replace(/[^a-z0-9]/gi, "").slice(-6)}_${i}`,
-        taskId,
-        fields,
-        confidence: conf,
-        sourceName: connectorNames.get(h.connectorId) ?? h.connectorId,
-        sourceUrl: h.org.website,
-        collectedAt: now,
-        flagged: conf < 0.7,
-      };
-    });
+    const rebuilt = recordsFromHits(hits, task.intent.fields, connectorNames, taskId, now);
     const { unique, removed } = dedupeRecords(rebuilt);
     records = unique;
     duplicatesRemoved = removed;
   }
-  const name = deriveDatasetName(prompt);
+  const name = deriveDatasetName(prompt, task.intent);
 
   const datasetId = await repo.createDataset({
     taskId,
@@ -335,7 +379,57 @@ async function finalizePipeline(taskId: string, prompt: string) {
   return datasetId;
 }
 
-function deriveDatasetName(prompt: string): string {
-  const words = prompt.replace(/[."]/g, "").split(" ").slice(0, 6).join(" ");
-  return words.length > 0 ? words : "Untitled Dataset";
+/**
+ * Project ranked corpus hits onto the columns the question asked for, stamping
+ * every row with its provenance and an honest confidence/backfill flag. Used by
+ * the Collect stage (corpus + live-crawl fallback) and by the finalize rebuild,
+ * so all three paths produce identically shaped rows.
+ */
+function recordsFromHits(
+  hits: CorpusHit[],
+  requestedFields: string[],
+  connectorNames: Map<string, string>,
+  taskId: string,
+  now: string
+): SourceRecord[] {
+  const suffix = taskId.replace(/[^a-z0-9]/gi, "").slice(-6);
+  return hits.map((h, i) => {
+    const { fields, filled } = fillFields(h.org, requestedFields);
+    return {
+      id: `rec_${suffix}_${i}`,
+      taskId,
+      fields,
+      confidence: recordConfidence(h.score, filled, requestedFields.length),
+      sourceName: connectorNames.get(h.connectorId) ?? h.connectorId,
+      sourceUrl: h.org.website,
+      collectedAt: now,
+      // A topped-up row (no relevance signal) is disclosed, never dressed as a match.
+      flagged: h.backfilled === true,
+    };
+  });
+}
+
+/**
+ * Dataset titles should read like a result, not a truncated question:
+ * "Sponsor Lead — Pune" instead of "Find sustainability-focused sponsor le".
+ */
+function deriveDatasetName(prompt: string, intent?: ExtractedIntent | null): string {
+  const cleaned = prompt.replace(/[.?!"'`]/g, " ").replace(/\s+/g, " ").trim();
+
+  const what =
+    intent?.entityType && intent.entityType !== "Organization"
+      ? intent.entityType
+      : cleaned
+          .replace(/^(please\s+)?(find|get|collect|list|show|gather|give me|search for|track down|i need|i'm looking for)\s+/i, "")
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 6)
+          .join(" ");
+
+  const base = what || cleaned.slice(0, 40) || "Untitled Dataset";
+  const qualifier = intent?.location ?? intent?.industry;
+  const name = qualifier && !base.toLowerCase().includes(qualifier.toLowerCase())
+    ? `${base} — ${qualifier}`
+    : base;
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }

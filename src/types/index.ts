@@ -38,6 +38,33 @@ export interface Connector {
   recordsContributed: number;
   reliability: number;
   icon: string;
+  category?: "corpus" | "live" | "hybrid";
+}
+
+export interface CrawlerRecord {
+  platform: string;
+  source: string;
+  source_url?: string;
+  scraped_at: string;
+  companies: string[];
+  query?: string;
+  title?: string;
+  text: string;
+  raw_metadata?: Record<string, unknown>;
+  confidence_hint?: number;
+}
+
+export interface CrawlJob {
+  id: string;
+  task_id: string;
+  status: "pending" | "running" | "completed" | "failed";
+  progress: number;
+  current_platform?: string;
+  records_collected: number;
+  platforms: string[];
+  error?: string;
+  started_at: string;
+  completed_at?: string;
 }
 
 export interface SourceRecord {
@@ -63,6 +90,9 @@ export interface DataTask {
   duplicatesRemoved: number;
   datasetId: string | null;
   progress: number;
+  crawlJobId?: string;
+  liveMode?: boolean;
+  enabledCategories?: string[];
 }
 
 export interface Dataset {

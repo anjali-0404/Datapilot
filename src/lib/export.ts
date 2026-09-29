@@ -8,16 +8,25 @@ export function exportDatasetAsJSON(dataset: Dataset) {
     source: r.sourceName,
     sourceUrl: r.sourceUrl,
     collectedAt: r.collectedAt,
+    // Never silently dropped: a reviewer needs to see which rows were flagged.
+    flagged: r.flagged ?? false,
   }));
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   downloadBlob(blob, `${slug(dataset.name)}.json`);
 }
 
 export function exportDatasetAsCSV(dataset: Dataset) {
-  const headers = [...dataset.columns, "confidence", "source", "sourceUrl", "collectedAt"];
+  const headers = [...dataset.columns, "confidence", "source", "sourceUrl", "collectedAt", "flagged"];
   const rows = dataset.records.map((r) => {
     const cells = dataset.columns.map((c) => csvCell(r.fields[c]));
-    return [...cells, r.confidence.toString(), csvCell(r.sourceName), csvCell(r.sourceUrl), r.collectedAt].join(",");
+    return [
+      ...cells,
+      r.confidence.toString(),
+      csvCell(r.sourceName),
+      csvCell(r.sourceUrl),
+      r.collectedAt,
+      r.flagged ? "true" : "false",
+    ].join(",");
   });
   const csv = [headers.join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });

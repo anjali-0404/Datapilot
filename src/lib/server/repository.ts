@@ -23,12 +23,15 @@ function newId(prefix: string) {
 // Tasks
 // ---------------------------------------------------------------------------
 
-export async function createTask(prompt: string): Promise<string> {
+export async function createTask(
+  prompt: string,
+  options: { liveMode?: boolean; enabledCategories?: string[] } = {}
+): Promise<string> {
   const id = newId("task");
   await query(
-    `INSERT INTO "Task" (id, prompt, status, progress, "recordsFound", "duplicatesRemoved")
-     VALUES ($1, $2, 'queued', 0, 0, 0)`,
-    [id, prompt]
+    `INSERT INTO "Task" (id, prompt, status, progress, "recordsFound", "duplicatesRemoved", "liveMode", "enabledCategories")
+     VALUES ($1, $2, 'queued', 0, 0, 0, $3, $4)`,
+    [id, prompt, options.liveMode ?? false, options.enabledCategories ?? []]
   );
 
   const stages = buildInitialStages();
@@ -126,6 +129,8 @@ interface TaskRow {
   progress: number;
   recordsFound: number;
   duplicatesRemoved: number;
+  liveMode: boolean;
+  enabledCategories: string[];
   createdAt: Date;
   datasetId: string | null;
 }
@@ -193,13 +198,15 @@ async function hydrateTask(row: TaskRow): Promise<DataTask> {
     duplicatesRemoved: row.duplicatesRemoved,
     datasetId: row.datasetId,
     progress: row.progress,
+    liveMode: row.liveMode,
+    enabledCategories: row.enabledCategories,
   };
 }
 
 export async function getTask(taskId: string): Promise<DataTask | null> {
   const row = await queryOne<TaskRow>(
     `SELECT t.id, t.prompt, t.status, t.progress, t."recordsFound", t."duplicatesRemoved",
-            t."createdAt", d.id AS "datasetId"
+            t."liveMode", t."enabledCategories", t."createdAt", d.id AS "datasetId"
      FROM "Task" t
      LEFT JOIN "Dataset" d ON d."taskId" = t.id
      WHERE t.id = $1`,
@@ -212,7 +219,7 @@ export async function getTask(taskId: string): Promise<DataTask | null> {
 export async function listTasks(limit = 50): Promise<DataTask[]> {
   const rows = await query<TaskRow>(
     `SELECT t.id, t.prompt, t.status, t.progress, t."recordsFound", t."duplicatesRemoved",
-            t."createdAt", d.id AS "datasetId"
+            t."liveMode", t."enabledCategories", t."createdAt", d.id AS "datasetId"
      FROM "Task" t
      LEFT JOIN "Dataset" d ON d."taskId" = t.id
      ORDER BY t."createdAt" DESC

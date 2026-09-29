@@ -48,4 +48,32 @@ export const CORPUS_PART2: CorpusOrg[] = [
   { name: "ICICI Foundation", website: "https://www.icicifoundation.org", industry: "Finance", location: "Mumbai", contactEmail: "info@icicifoundation.org", phone: "+91 22 2653 1414", tags: ["finance", "csr", "sponsor", "ngo"], layer: "csr-database" },
 ];
 
-export const CORPUS: CorpusOrg[] = [...CORPUS_PART1, ...CORPUS_PART2];
+export const CORPUS_PART3: CorpusOrg[] = [
+  { name: "LTIMindtree", website: "https://www.ltimindtree.com", industry: "Technology", location: "Bangalore", contactEmail: "", phone: "", tags: ["technology", "software", "sponsor"], layer: "job-boards" },
+  { name: "Tech Mahindra", website: "https://www.techmahindra.com", industry: "Technology", location: "Pune", contactEmail: "investor.relations@techmahindra.com", phone: "", tags: ["technology", "software", "sponsor"], layer: "job-boards" },
+  { name: "Mphasis", website: "https://www.mphasis.com", industry: "Technology", location: "Bangalore", contactEmail: "", phone: "", tags: ["technology", "software", "sponsor"], layer: "job-boards" },
+  { name: "Cyient", website: "https://www.cyient.com", industry: "Technology", location: "Hyderabad", contactEmail: "", phone: "", tags: ["technology", "software", "sponsor"], layer: "job-boards" },
+  { name: "TVS Motor Company", website: "https://www.tvsmotor.com", industry: "Electric Mobility", location: "Chennai", contactEmail: "customercare@tvsmotor.com", phone: "1800 258 7555", tags: ["automotive", "electric mobility", "sustainability", "sponsor"], layer: "company-registry" },
+  { name: "Bajaj Auto", website: "https://www.bajajauto.com", industry: "Automotive", location: "Pune", contactEmail: "customerservice@bajajauto.co.in", phone: "+91 721 982 1111", tags: ["automotive", "manufacturing", "sponsor"], layer: "company-registry" },
+  { name: "Hero MotoCorp", website: "https://www.heromotocorp.com", industry: "Automotive", location: "Gurugram", contactEmail: "", phone: "", tags: ["automotive", "manufacturing", "sponsor"], layer: "company-registry" },
+  { name: "Inox Wind", website: "https://www.inoxwind.com", industry: "Renewable Energy", location: "Ahmedabad", contactEmail: "enquiry@inoxwind.com", phone: "", tags: ["sustainability", "renewable", "energy", "wind", "climate"], layer: "news-feed" },
+  { name: "Azure Power", website: "https://www.azurepower.com", industry: "Renewable Energy", location: "Delhi", contactEmail: "info@azurepower.com", phone: "+91 124 4155 755", tags: ["sustainability", "renewable", "energy", "solar", "climate"], layer: "news-feed" },
+  { name: "GAIL", website: "https://www.gailonline.com", industry: "Oil & Gas", location: "Delhi", contactEmail: "", phone: "", tags: ["energy", "gas", "sustainability", "sponsor"], layer: "news-feed" },
+  { name: "PhonePe", website: "https://www.phonepe.com", industry: "Fintech", location: "Bangalore", contactEmail: "", phone: "+91 80 6872 7105", tags: ["fintech", "finance", "startup", "sponsor"], layer: "company-registry" },
+  { name: "Paytm", website: "https://www.paytm.com", industry: "Fintech", location: "Noida", contactEmail: "", phone: "+91 120 444 0440", tags: ["fintech", "finance", "startup", "sponsor"], layer: "company-registry" },
+  { name: "Groww", website: "https://www.groww.in", industry: "Fintech", location: "Bangalore", contactEmail: "support@groww.in", phone: "+91 91088 00000", tags: ["fintech", "finance", "startup"], layer: "company-registry" },
+  { name: "Pine Labs", website: "https://www.pinelabs.com", industry: "Fintech", location: "Noida", contactEmail: "", phone: "", tags: ["fintech", "finance", "startup", "sponsor"], layer: "company-registry" },
+  { name: "BharatPe", website: "https://www.bharatpe.com", industry: "Fintech", location: "Delhi", contactEmail: "", phone: "", tags: ["fintech", "finance", "startup"], layer: "company-registry" },
+  { name: "1mg", website: "https://www.1mg.com", industry: "Healthtech", location: "Gurugram", contactEmail: "", phone: "", tags: ["health", "healthtech", "startup"], layer: "social-directory" },
+  { name: "Unacademy", website: "https://www.unacademy.com", industry: "Edtech", location: "Bangalore", contactEmail: "", phone: "+91 85858 58585", tags: ["education", "edtech", "startup"], layer: "social-directory" },
+  { name: "Mamaearth", website: "https://www.mamaearth.in", industry: "Consumer Goods", location: "Gurugram", contactEmail: "care@mamaearth.in", phone: "", tags: ["d2c", "consumer", "startup", "sponsor"], layer: "social-directory" },
+  { name: "Nykaa", website: "https://www.nykaa.com", industry: "E-commerce", location: "Mumbai", contactEmail: "", phone: "", tags: ["ecommerce", "retail", "startup", "sponsor"], layer: "social-directory" },
+  { name: "Delhivery", website: "https://www.delhivery.com", industry: "Logistics", location: "Gurugram", contactEmail: "", phone: "", tags: ["logistics", "supply chain", "startup", "sponsor"], layer: "web-search" },
+  { name: "DLF", website: "https://www.dlf.in", industry: "Real Estate", location: "Delhi", contactEmail: "info@dlf.in", phone: "+91 124 4396 000", tags: ["real estate", "infrastructure", "sponsor"], layer: "web-search" },
+  { name: "JSW Steel", website: "https://www.jswsteel.in", industry: "Steel", location: "Mumbai", contactEmail: "", phone: "1800 225 225", tags: ["manufacturing", "steel", "sustainability", "csr", "sponsor"], layer: "csr-database" },
+  { name: "ITC", website: "https://www.itcportal.com", industry: "FMCG", location: "Kolkata", contactEmail: "", phone: "+91 33 2288 9371", tags: ["fmcg", "manufacturing", "csr", "sustainability", "sponsor"], layer: "csr-database" },
+  { name: "Goonj", website: "https://www.goonj.org", industry: "Social Services", location: "Delhi", contactEmail: "", phone: "", tags: ["ngo", "social", "sustainability"], layer: "csr-database" },
+  { name: "Akshaya Patra", website: "https://www.akshayapatra.org", industry: "Social Services", location: "Bangalore", contactEmail: "", phone: "1800 425 8622", tags: ["ngo", "social", "education"], layer: "csr-database" },
+];
+
+export const CORPUS: CorpusOrg[] = [...CORPUS_PART1, ...CORPUS_PART2, ...CORPUS_PART3];

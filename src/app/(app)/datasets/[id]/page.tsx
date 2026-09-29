@@ -40,6 +40,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RecordDetailDialog } from "@/components/dataset/record-detail-dialog";
 import { DatasetAnalytics } from "@/components/dataset/dataset-analytics";
+import { AnalystBriefCard } from "@/components/workflow/analyst-brief";
+import { buildAnalystBrief } from "@/lib/insights";
 import { exportDatasetAsCSV, exportDatasetAsJSON } from "@/lib/export";
 import type { SourceRecord } from "@/types";
 import { formatRelativeTime } from "@/lib/utils";
@@ -109,6 +111,19 @@ export default function DatasetExplorerPage() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRecords = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const brief = React.useMemo(
+    () =>
+      dataset
+        ? buildAnalystBrief({
+            prompt: dataset.prompt,
+            records: dataset.records,
+            columns: dataset.columns,
+            sourcesUsed: dataset.sourcesUsed,
+          })
+        : null,
+    [dataset]
+  );
 
   const [prevFilters, setPrevFilters] = React.useState({ search, sourceFilter });
   if (prevFilters.search !== search || prevFilters.sourceFilter !== sourceFilter) {
@@ -194,6 +209,8 @@ export default function DatasetExplorerPage() {
         </div>
       </div>
 
+      {brief && <AnalystBriefCard brief={brief} />}
+
       <Tabs defaultValue="table">
         <TabsList>
           <TabsTrigger value="table">Table</TabsTrigger>
@@ -250,9 +267,16 @@ export default function DatasetExplorerPage() {
                         </td>
                       ))}
                       <td className="px-4 py-2.5">
-                        <Badge variant={r.confidence > 0.85 ? "success" : r.confidence > 0.7 ? "warning" : "danger"}>
-                          {Math.round(r.confidence * 100)}%
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant={r.confidence > 0.85 ? "success" : r.confidence > 0.7 ? "warning" : "danger"}>
+                            {Math.round(r.confidence * 100)}%
+                          </Badge>
+                          {r.flagged && (
+                            <Badge variant="warning" title="Flagged during validation or topped up without a relevance match">
+                              review
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-2.5">
                         <a

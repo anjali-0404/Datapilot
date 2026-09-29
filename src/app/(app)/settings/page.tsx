@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api, type RuntimeConfig } from "@/lib/api";
+import { CORPUS } from "@/lib/corpus";
 import { useAppStore } from "@/store/use-app-store";
 import { toast } from "sonner";
 
@@ -48,7 +49,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <HowRow n="1" title="Understand" desc="An LLM reads your question and extracts entities, filters and the exact fields you need." />
-          <HowRow n="2" title="Collect" desc="The engine ranks 24 verified organizations against that intent — no invented companies, no dead links." />
+          <HowRow n="2" title="Collect" desc={`The engine ranks ${CORPUS.length} verified organizations against that intent — no invented companies, no dead links.`} />
           <HowRow n="3" title="Prove" desc="Every record is validated (URL, email, completeness), deduped and scored — then linked to its source." />
         </CardContent>
       </Card>
@@ -69,9 +70,13 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Reasoning engine</CardTitle>
           <CardDescription>
-            Read live from the server. Configure it with <code className="font-mono text-[11px]">OPENROUTER_API_KEY</code>{" "}
-            and <code className="font-mono text-[11px]">AI_MODEL</code> (see{" "}
-            <code className="font-mono text-[11px]">.env.example</code>) — secrets never reach the browser.
+            Read live from the server. Configure it with <code className="font-mono text-[11px]">NVIDIA_API_KEY</code>{" "}
+            (preferred — free NIM key from build.nvidia.com) or{" "}
+            <code className="font-mono text-[11px]">OPENROUTER_API_KEY</code>, plus{" "}
+            <code className="font-mono text-[11px]">NVIDIA_MODEL</code> /{" "}
+            <code className="font-mono text-[11px]">AI_MODEL</code> (see{" "}
+            <code className="font-mono text-[11px]">.env.example</code>) — secrets never reach the browser. The first
+            provider that answers is used; if all fail, the local NLP fallback runs.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">

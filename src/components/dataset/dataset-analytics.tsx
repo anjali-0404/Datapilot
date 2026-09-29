@@ -3,6 +3,7 @@
 import * as React from "react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, PieChart, Pie } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { Dataset } from "@/types";
 
 const PIE_COLORS = ["#6d5bfa", "#17b6d4", "#b968f0", "#2cd696", "#f6ad3c", "#f3556a"];
@@ -34,6 +35,21 @@ export function DatasetAnalytics({ dataset }: { dataset: Dataset }) {
   }, [dataset.records]);
 
   const flaggedCount = dataset.records.filter((r) => r.flagged).length;
+  const strongCount = dataset.records.filter((r) => r.confidence >= 0.85).length;
+
+  // Per-column fill rate — the honest answer to "how much of my question did
+  // this dataset actually answer?", which an average confidence number hides.
+  const columnCoverage = React.useMemo(() => {
+    const filled = (v: unknown) => {
+      const s = String(v ?? "").trim();
+      return s !== "" && s !== "—";
+    };
+    return dataset.columns.map((field) => {
+      const count = dataset.records.filter((r) => filled(r.fields[field])).length;
+      const pct = dataset.records.length > 0 ? Math.round((count / dataset.records.length) * 100) : 0;
+      return { field, pct };
+    });
+  }, [dataset]);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -41,7 +57,7 @@ export function DatasetAnalytics({ dataset }: { dataset: Dataset }) {
         <p className="text-xs font-medium text-muted">Summary</p>
         <div className="mt-4 space-y-4">
           <Metric label="Average confidence" value={`${avgConfidence}%`} />
-          <Metric label="Fields per record" value={`${dataset.columns.length}`} />
+          <Metric label="Strong matches (85%+)" value={`${strongCount}`} />
           <Metric label="Sources queried" value={`${dataset.sourcesUsed.length}`} />
           <Metric label="Flagged for review" value={`${flaggedCount}`} accent={flaggedCount > 0 ? "warning" : undefined} />
         </div>
@@ -105,6 +121,32 @@ export function DatasetAnalytics({ dataset }: { dataset: Dataset }) {
             ))}
           </div>
         </CardContent>
+      </Card>
+
+      <Card className="p-5 lg:col-span-3">
+        <p className="text-xs font-medium text-muted">Column coverage — how completely each requested column is filled</p>
+        <div className="mt-4 space-y-3">
+          {columnCoverage.map((c) => (
+            <div key={c.field} className="flex items-center gap-3">
+              <span className="w-40 shrink-0 truncate text-xs text-muted">{c.field}</span>
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    c.pct >= 90 ? "bg-success" : c.pct >= 60 ? "bg-primary" : "bg-warning"
+                  )}
+                  style={{ width: `${c.pct}%` }}
+                />
+              </div>
+              <span className={cn(
+                "mono-tabular w-12 shrink-0 text-right text-xs",
+                c.pct >= 90 ? "text-success" : c.pct >= 60 ? "text-muted" : "text-warning"
+              )}>
+                {c.pct}%
+              </span>
+            </div>
+          ))}
+        </div>
       </Card>
     </div>
   );

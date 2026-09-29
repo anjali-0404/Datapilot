@@ -16,98 +16,161 @@ Respond with ONLY a JSON object (no markdown, no prose) matching this exact shap
 "Contact Email"). "constraints" should be short human-readable filters implied by the
 prompt. Keep it concise.`;
 
+/** NVIDIA NIM (build.nvidia.com) — OpenAI-compatible chat completions. */
+const NVIDIA_DEFAULT_MODEL = "meta/llama-3.1-70b-instruct";
+/** OpenRouter — free-tier JSON-friendly default. */
+const OPENROUTER_DEFAULT_MODEL = "x-ai/grok-4.1-fast:free";
+
+type ProviderId = "nvidia" | "openrouter";
+
+interface Provider {
+  id: ProviderId;
+  label: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
 /**
- * Extracts intent from a prompt. If OPENROUTER_API_KEY (or legacy AI_API_KEY)
- * is configured, this calls the OpenRouter chat-completions API for real
- * LLM-based extraction. Otherwise (and on any failure, so the product never
- * hard-fails a request) it falls back to the deterministic local NLP in
- * collection-engine.ts.
+ * Which reasoning engines are configured, in the order they will be tried.
  *
- * Free/offline-safe models that work well here (set AI_MODEL to override):
- * - "x-ai/grok-4.1-fast:free" (default — free tier, JSON-friendly)
- * - "meta-llama/llama-3.3-70b-instruct:free"
- * - "google/gemini-2.0-flash-001" (cheap, fast)
+ * NVIDIA NIM is preferred when `NVIDIA_API_KEY` is set (free research keys from
+ * build.nvidia.com, and the same key already powers search-term expansion in
+ * crawler-service). OpenRouter is tried next if its key exists. `LLM_PROVIDER`
+ * can pin the order to "nvidia" or "openrouter".
  */
-const DEFAULT_MODEL = "x-ai/grok-4.1-fast:free";
+function configuredProviders(): Provider[] {
+  const nvidiaKey = process.env.NVIDIA_API_KEY?.trim();
+  const openrouterKey = (process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY)?.trim();
+
+  const providers: Provider[] = [];
+  if (nvidiaKey) {
+    const base = (process.env.NVIDIA_NIM_BASE_URL?.trim() || "https://integrate.api.nvidia.com/v1").replace(/\/+$/, "");
+    providers.push({
+      id: "nvidia",
+      label: "NVIDIA NIM",
+      baseUrl: `${base}/chat/completions`,
+      apiKey: nvidiaKey,
+      model: process.env.NVIDIA_MODEL?.trim() || NVIDIA_DEFAULT_MODEL,
+    });
+  }
+  if (openrouterKey) {
+    providers.push({
+      id: "openrouter",
+      label: "OpenRouter",
+      baseUrl: "https://openrouter.ai/api/v1/chat/completions",
+      apiKey: openrouterKey,
+      model: process.env.AI_MODEL?.trim() || OPENROUTER_DEFAULT_MODEL,
+    });
+  }
+
+  const forced = process.env.LLM_PROVIDER?.trim().toLowerCase();
+  if (forced) {
+    providers.sort((a, b) => (a.id === forced ? -1 : b.id === forced ? 1 : 0));
+  }
+  return providers;
+}
 
 /** Which reasoning engine is live right now. Used by the Settings page. */
-export function describeAI(): { configured: boolean; provider: string; model: string } {
-  const configured = Boolean(process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY);
+export function describeAI(): { configured: boolean; provider: string; model: string; fallback: string | null } {
+  const providers = configuredProviders();
+  if (providers.length === 0) {
+    return { configured: false, provider: "None", model: "Local NLP", fallback: null };
+  }
   return {
-    configured,
-    provider: "OpenRouter",
-    model: process.env.AI_MODEL || DEFAULT_MODEL,
+    configured: true,
+    provider: providers[0].label,
+    model: providers[0].model,
+    fallback: providers[1]?.label ?? null,
   };
 }
 
+/** One provider call → the raw assistant text. */
+async function callChat(provider: Provider, prompt: string): Promise<string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${provider.apiKey}`,
+  };
+  if (provider.id === "openrouter") {
+    headers["HTTP-Referer"] = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    headers["X-Title"] = "DataPilot AI";
+  }
+
+  const response = await fetch(provider.baseUrl, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model: provider.model,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 500,
+      temperature: 0.1,
+      // NOTE: no response_format — free-tier and NIM models differ on
+      // json_object support; the fence cleanup below handles both.
+    }),
+    signal: AbortSignal.timeout(20000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`${provider.label} API returned ${response.status}`);
+  }
+
+  const data = await response.json();
+  let text = String(data.choices?.[0]?.message?.content ?? "").trim();
+  if (!text && Array.isArray(data.choices?.[0]?.message?.content)) {
+    text = data.choices[0].message.content
+      .map((b: { text?: string }) => b?.text ?? "")
+      .join("")
+      .trim();
+  }
+  if (!text) throw new Error(`${provider.label} returned empty content`);
+  return text;
+}
+
+/** Provider text → typed intent, or a thrown error the caller can fall past. */
+function parseIntent(text: string, prompt: string): ExtractedIntent {
+  // Extract the first {...} block — tolerant of prose/fences around it.
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end <= start) throw new Error("model returned non-JSON");
+  const parsed = JSON.parse(text.slice(start, end + 1));
+
+  const intent: ExtractedIntent = {
+    goal: parsed.goal ?? prompt,
+    entityType: parsed.entityType ?? "Organization",
+    location: parsed.location ?? undefined,
+    industry: parsed.industry ?? undefined,
+    fields: Array.isArray(parsed.fields) && parsed.fields.length > 0 ? parsed.fields : ["Name", "Website"],
+    constraints: Array.isArray(parsed.constraints) ? parsed.constraints : [],
+    confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.85,
+  };
+
+  // Guard: LLM must return at least a usable shape; else fall through.
+  if (!intent.goal || intent.fields.length === 0) throw new Error("model returned unusable intent");
+  return intent;
+}
+
+/**
+ * Extracts intent from a prompt. Tries each configured LLM in turn (NVIDIA NIM
+ * first, then OpenRouter) so a rate-limited free tier never blocks the product.
+ * If every provider fails — and always, when no key is configured — it falls
+ * back to the deterministic local NLP in collection-engine.ts, so a request
+ * never hard-fails.
+ */
 export async function extractIntentAI(prompt: string): Promise<{ intent: ExtractedIntent; usedAI: boolean; model?: string }> {
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY;
-  const model = process.env.AI_MODEL || DEFAULT_MODEL;
+  const providers = configuredProviders();
 
-  if (!apiKey) {
-    return { intent: extractIntentHeuristic(prompt), usedAI: false };
+  for (const provider of providers) {
+    try {
+      const text = await callChat(provider, prompt);
+      const intent = parseIntent(text, prompt);
+      return { intent, usedAI: true, model: provider.model };
+    } catch (err) {
+      console.error(`[extractIntentAI] ${provider.label} failed:`, err);
+    }
   }
 
-  try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "DataPilot AI",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 500,
-        temperature: 0.1,
-        // NOTE: no response_format — not all free-tier models support
-        // json_object mode; the system prompt + fence cleanup handle it.
-      }),
-      signal: AbortSignal.timeout(20000),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenRouter API returned ${response.status}`);
-    }
-
-    const data = await response.json();
-    let text = String(data.choices?.[0]?.message?.content ?? "").trim();
-    // Some models wrap the whole reply in an array or add reasoning prefix.
-    if (!text && Array.isArray(data.choices?.[0]?.message?.content)) {
-      text = data.choices[0].message.content
-        .map((b: { text?: string }) => b?.text ?? "")
-        .join("")
-        .trim();
-    }
-    if (!text) throw new Error("OpenRouter returned empty content");
-
-    // Extract the first {...} block — tolerant of prose/fences around it.
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start === -1 || end <= start) throw new Error("OpenRouter returned non-JSON");
-    const parsed = JSON.parse(text.slice(start, end + 1));
-
-    const intent: ExtractedIntent = {
-      goal: parsed.goal ?? prompt,
-      entityType: parsed.entityType ?? "Organization",
-      location: parsed.location ?? undefined,
-      industry: parsed.industry ?? undefined,
-      fields: Array.isArray(parsed.fields) && parsed.fields.length > 0 ? parsed.fields : ["Name", "Website"],
-      constraints: Array.isArray(parsed.constraints) ? parsed.constraints : [],
-      confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.85,
-    };
-
-    // Guard: LLM must return at least a usable shape; else fall back.
-    if (!intent.goal || intent.fields.length === 0) throw new Error("OpenRouter returned unusable intent");
-
-    return { intent, usedAI: true, model };
-  } catch (err) {
-    console.error("[extractIntentAI] falling back to local extraction:", err);
-    return { intent: extractIntentHeuristic(prompt), usedAI: false };
-  }
+  return { intent: extractIntentHeuristic(prompt), usedAI: false };
 }

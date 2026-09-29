@@ -1,12 +1,23 @@
 import type { Connector, ExtractedIntent, StageId, WorkflowStage } from "@/types";
 
 export const CONNECTORS: Connector[] = [
+  // Corpus-based (original, deterministic)
   { id: "web-search", name: "Curated Web Index", type: "web", status: "active", recordsContributed: 0, reliability: 92, icon: "globe" },
   { id: "company-registry", name: "Company Directory", type: "api", status: "active", recordsContributed: 0, reliability: 97, icon: "building" },
   { id: "news-feed", name: "Ecosystem Feed", type: "api", status: "active", recordsContributed: 0, reliability: 88, icon: "newspaper" },
   { id: "social-directory", name: "Public Directory", type: "web", status: "active", recordsContributed: 0, reliability: 79, icon: "users" },
   { id: "csr-database", name: "CSR / Sustainability DB", type: "database", status: "active", recordsContributed: 0, reliability: 94, icon: "leaf" },
   { id: "job-boards", name: "Startup & Tech Index", type: "api", status: "active", recordsContributed: 0, reliability: 90, icon: "briefcase" },
+  // Live crawlers (new, real-time)
+  { id: "rss", name: "RSS Feeds (14 sources)", type: "api", status: "active", recordsContributed: 0, reliability: 85, icon: "rss" },
+  { id: "bbcnews", name: "BBC News", type: "web", status: "active", recordsContributed: 0, reliability: 90, icon: "tv" },
+  { id: "thehackernews", name: "The Hacker News", type: "web", status: "active", recordsContributed: 0, reliability: 88, icon: "shield" },
+  { id: "reddit", name: "Reddit (public JSON)", type: "api", status: "active", recordsContributed: 0, reliability: 82, icon: "message-square" },
+  { id: "hackernews", name: "Hacker News (Algolia)", type: "api", status: "active", recordsContributed: 0, reliability: 90, icon: "code" },
+  { id: "trustpilot", name: "Trustpilot Reviews", type: "web", status: "active", recordsContributed: 0, reliability: 88, icon: "star" },
+  { id: "googleplay", name: "Google Play Store", type: "api", status: "active", recordsContributed: 0, reliability: 85, icon: "smartphone" },
+  { id: "appstore", name: "Apple App Store", type: "api", status: "active", recordsContributed: 0, reliability: 85, icon: "apple" },
+  { id: "github", name: "GitHub Repositories", type: "api", status: "active", recordsContributed: 0, reliability: 92, icon: "github" },
 ];
 
 export const STAGE_META: Record<StageId, { label: string; description: string }> = {
@@ -85,14 +96,25 @@ export function extractIntent(prompt: string): ExtractedIntent {
 }
 
 // What each source layer actually holds. Shown on the Sources page so the
-// list is self-explanatory rather than six mysterious connector names.
+// list is self-explanatory rather than mysterious connector names.
 export const SOURCE_LAYER_NOTES: Record<string, string> = {
+  // Corpus-based (original, deterministic)
   "web-search": "Official websites of energy, manufacturing and infrastructure majors — company site, industry and HQ.",
   "company-registry": "Registered company profiles: fintech, software and industrial firms with contact details.",
   "news-feed": "Climate and corporate news coverage used to surface sponsor- and announcement-related orgs.",
   "social-directory": "Public profiles of consumer-tech and mobility startups.",
   "csr-database": "CSR arms, foundations and research bodies working on sustainability and environment.",
   "job-boards": "Tech employers indexed for hiring questions (roles, teams, locations).",
+  // Live crawlers (new, real-time)
+  "rss": "14 tech/business RSS feeds (TechCrunch, The Verge, Wired, Ars Technica, BBC, NYT, VentureBeat, etc.) — real-time article extraction.",
+  "bbcnews": "BBC News search — live scraping of BBC's search results for company/keyword matches.",
+  "thehackernews": "The Hacker News — cybersecurity and tech news site, live search + article extraction.",
+  "reddit": "Reddit public JSON API — searches relevant subreddits, fetches posts and comments (no auth required).",
+  "hackernews": "Hacker News via Algolia API — searches stories and comments, high-signal tech discussions.",
+  "trustpilot": "Trustpilot reviews — stealth Playwright scraping of business review pages with pagination.",
+  "googleplay": "Google Play Store — official python library scraping app reviews for company apps.",
+  "appstore": "Apple App Store — public RSS feed API for customer reviews.",
+  "github": "GitHub Search API — public repository search with README, topics, descriptions (no auth for basic).",
 };
 
 // Planned per question by src/lib/collect.ts planSourcesForIntent(): the layers

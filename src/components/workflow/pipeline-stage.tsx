@@ -7,15 +7,23 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 // Plain-English answers to "what is the system doing right now?" — shown under
-// each stage while the pipeline runs.
+// each stage while the pipeline runs. Kept honest: every claim here is backed by
+// an actual check in the stage handler (validate really drops rows, deduplicate
+// really compares on a normalized name+domain key).
 const STAGE_EXPLAINERS: Record<string, string> = {
   interpret: "AI reads your question and figures out what you're looking for, where, and which columns matter.",
   plan: "System picks the right sources for this specific question — not a fixed script, planned per request.",
-  collect: "Gathering matching organizations and pulling their verified details.",
-  validate: "Checking every website link, email format and field — bad rows get dropped with reasons.",
-  deduplicate: "Comparing records pairwise so the same company never appears twice.",
-  deliver: "Packaging the clean table: searchable, analyzable, exportable.",
+  collect: "Gathering matching organizations and pulling their source-linked details.",
+  validate: "Checking every row for a name and a traceable source URL — bad rows are dropped with reasons.",
+  deduplicate: "Matching rows on a normalized name + domain key so the same company never appears twice.",
+  deliver: "Writing the analyst brief and packaging the table: searchable, analyzable, exportable.",
 };
+
+// A log line that starts with "!" or reports a drop/flag is a warning, not a
+// success — it must not render with a green tick.
+function isWarningLog(line: string): boolean {
+  return /^!\s/.test(line) || /\b(failed|dropped|flagged for review|not in this knowledge base|unavailable)\b/i.test(line);
+}
 
 export function PipelineStageRow({ stage, isLast }: { stage: WorkflowStage; isLast: boolean }) {
   const explainer = STAGE_EXPLAINERS[stage.id] ?? stage.description;
@@ -64,11 +72,21 @@ export function PipelineStageRow({ stage, isLast }: { stage: WorkflowStage; isLa
             animate={{ opacity: 1, height: "auto" }}
             className="mt-2.5 space-y-1 overflow-hidden rounded-lg border border-border bg-surface-2/40 p-2.5"
           >
-            {stage.logs.map((log, i) => (
-              <p key={i} className="font-mono text-[11px] leading-relaxed text-muted">
-                <span className="text-success">✓</span> {log}
-              </p>
-            ))}
+            {stage.logs.map((log, i) => {
+              const warn = isWarningLog(log);
+              return (
+                <p
+                  key={i}
+                  className={cn(
+                    "font-mono text-[11px] leading-relaxed",
+                    warn ? "text-warning" : "text-muted"
+                  )}
+                >
+                  <span className={warn ? "text-warning" : "text-success"}>{warn ? "!" : "✓"}</span>{" "}
+                  {warn ? log.replace(/^!\s*/, "") : log}
+                </p>
+              );
+            })}
           </motion.div>
         )}
       </div>

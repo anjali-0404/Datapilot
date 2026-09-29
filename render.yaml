@@ -27,10 +27,41 @@ services:
           property: connectionString # internal URL, same region
       - key: NEXT_PUBLIC_APP_URL
         value: https://datapilot.onrender.com # edit to your real service URL, then redeploy
+      - key: NVIDIA_API_KEY
+        sync: false # free NIM key from build.nvidia.com — preferred LLM for intent extraction
+      - key: NVIDIA_MODEL
+        value: meta/llama-3.1-70b-instruct # override with any NIM chat model id
+      - key: LLM_PROVIDER
+        value: nvidia # priority order: nvidia, openrouter (both still fall back)
       - key: OPENROUTER_API_KEY
-        sync: false # OpenRouter key for real LLM intent extraction (free-tier model by default)
+        sync: false # fallback OpenRouter key for real LLM intent extraction (free-tier model by default)
       - key: AI_MODEL
         value: x-ai/grok-4.1-fast:free # free; override with any OpenRouter model id
+      - key: CRAWLER_SERVICE_URL
+        value: https://datapilot-crawler.onrender.com # internal URL for crawler service
+
+  - type: web
+    name: datapilot-crawler
+    env: python
+    branch: main
+    plan: free
+    rootDir: crawler-service
+    buildCommand: export CARGO_HOME="$HOME/.cargo" && export PATH="$CARGO_HOME/bin:/usr/local/cargo/bin:$PATH" && pip install -r requirements.txt && playwright install chromium
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: datapilot-db
+          property: connectionString
+      - key: PLAYWRIGHT_HEADLESS
+        value: "true"
+      - key: NVIDIA_API_KEY
+        sync: false # same free NIM key — used by utils/search_terms.py to expand search terms
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: PYTHON_VERSION
+        value: "3.12"
 
 databases:
   - name: datapilot-db

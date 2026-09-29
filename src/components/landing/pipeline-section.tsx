@@ -7,9 +7,9 @@ const STAGES = [
   { icon: Brain, label: "Interpret", desc: "Grok 4.1 turns your sentence into structured intent — what you want, where, and which columns matter." },
   { icon: ListTree, label: "Plan", desc: "The engine picks which sources this specific question needs. Different question, different plan." },
   { icon: RadarIcon, label: "Collect", desc: "Gathering matching organizations and pulling their real details — names, sites, locations, contacts." },
-  { icon: ShieldCheck, label: "Validate", desc: "Every website link and email is checked, and incomplete records are dropped with a reason." },
-  { icon: Copy, label: "Deduplicate", desc: "Records are compared pairwise so the same organization never shows up twice." },
-  { icon: PackageCheck, label: "Deliver", desc: "You get a searchable, analyzable table where every row cites the source it came from." },
+  { icon: ShieldCheck, label: "Validate", desc: "Every row needs a name and a traceable source URL. Anything that can't be traced is dropped with a reason shown." },
+  { icon: Copy, label: "Deduplicate", desc: "Records are matched on a normalized name + domain key, so the same organization never shows up twice." },
+  { icon: PackageCheck, label: "Deliver", desc: "You get an analyst brief — headline, top matches, coverage, gaps — plus a table where every row cites its source." },
 ];
 
 export function PipelineSection() {

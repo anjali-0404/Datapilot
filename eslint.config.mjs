@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Python crawler microservice (and its virtualenv) — not JS source.
+    "crawler-service/**",
+    // Exported sample data, not source.
+    "datasets/**",
   ]),
 ]);
 

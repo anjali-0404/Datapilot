@@ -14,7 +14,7 @@ export function ResultsPreviewTable({ dataset }: { dataset: Dataset }) {
     <div className="overflow-hidden rounded-xl border border-border">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface-2/40 px-4 py-2.5">
         <p className="text-xs font-medium text-foreground">
-          {dataset.records.length} verified records · {dataset.sourcesUsed.length} sources · ready to use
+          {dataset.records.length} source-linked records · {dataset.sourcesUsed.length} source layer{dataset.sourcesUsed.length === 1 ? "" : "s"} · every row opens its source
         </p>
         <Button variant="ghost" size="sm" asChild>
           <Link href={`/datasets/${dataset.id}`}>
@@ -41,9 +41,16 @@ export function ResultsPreviewTable({ dataset }: { dataset: Dataset }) {
                   </td>
                 ))}
                 <td className="px-4 py-2.5">
-                  <Badge variant={r.confidence > 0.85 ? "success" : r.confidence > 0.7 ? "warning" : "danger"} title={r.confidence > 0.85 ? "Strong match: relevant + complete" : r.confidence > 0.7 ? "Good match: relevant, minor gaps" : "Weak match: check before using"}>
-                    {Math.round(r.confidence * 100)}%
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant={r.confidence > 0.85 ? "success" : r.confidence > 0.7 ? "warning" : "danger"} title={r.confidence > 0.85 ? "Strong match: relevant + complete" : r.confidence > 0.7 ? "Good match: relevant, minor gaps" : "Weak match: check before using"}>
+                      {Math.round(r.confidence * 100)}%
+                    </Badge>
+                    {r.flagged && (
+                      <Badge variant="warning" title="Flagged during validation or topped up without a relevance match — check before acting on this row">
+                        review
+                      </Badge>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

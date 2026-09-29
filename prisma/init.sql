@@ -27,6 +27,8 @@ CREATE TABLE "Task" (
   progress INT NOT NULL DEFAULT 0,
   "recordsFound" INT NOT NULL DEFAULT 0,
   "duplicatesRemoved" INT NOT NULL DEFAULT 0,
+  "liveMode" BOOLEAN NOT NULL DEFAULT false,
+  "enabledCategories" TEXT[] NOT NULL DEFAULT '{}',
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -105,9 +107,20 @@ CREATE INDEX "Workflow_createdAt_idx" ON "Workflow" ("createdAt");
 
 -- Seed the connector catalog (mirrors src/lib/collection-engine.ts CONNECTORS)
 INSERT INTO "Connector" (id, name, type, status, reliability) VALUES
+  -- Corpus-based (original, deterministic)
   ('web-search', 'Curated Web Index', 'web', 'active', 92),
   ('company-registry', 'Company Directory', 'api', 'active', 97),
   ('news-feed', 'Ecosystem Feed', 'api', 'active', 88),
   ('social-directory', 'Public Directory', 'web', 'active', 79),
   ('csr-database', 'CSR / Sustainability DB', 'database', 'active', 94),
-  ('job-boards', 'Startup & Tech Index', 'api', 'active', 90);
+  ('job-boards', 'Startup & Tech Index', 'api', 'active', 90),
+  -- Live crawlers (new, real-time)
+  ('rss', 'RSS Feeds (14 sources)', 'api', 'active', 85),
+  ('bbcnews', 'BBC News', 'web', 'active', 90),
+  ('thehackernews', 'The Hacker News', 'web', 'active', 88),
+  ('reddit', 'Reddit (public JSON)', 'api', 'active', 82),
+  ('hackernews', 'Hacker News (Algolia)', 'api', 'active', 90),
+  ('trustpilot', 'Trustpilot Reviews', 'web', 'active', 88),
+  ('googleplay', 'Google Play Store', 'api', 'active', 85),
+  ('appstore', 'Apple App Store', 'api', 'active', 85),
+  ('github', 'GitHub Repositories', 'api', 'active', 92);

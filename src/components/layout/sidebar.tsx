@@ -13,6 +13,7 @@ import {
   Radar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CORPUS } from "@/lib/corpus";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -66,7 +67,7 @@ export function Sidebar() {
             System operational
           </div>
           <p className="mt-1 text-[11px] leading-snug text-muted">
-            24 verified organizations indexed. Every record links to its source.
+            {CORPUS.length} verified organizations indexed. Every record links to its source.
           </p>
         </div>
       </div>
