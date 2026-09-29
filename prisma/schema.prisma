@@ -1,8 +1,8 @@
 // DataPilot AI — Prisma schema
-// This defines the production data model for PostgreSQL. The demo app running
-// in this environment uses an in-memory store (see src/store/use-app-store.ts)
-// so it works without a database connection; wire these models up behind
-// src/app/api/* routes to move from demo mode to a real deployment.
+// This defines the PostgreSQL data model that the running application uses.
+// The runtime talks to Postgres through `pg` (see src/lib/server/db.ts and
+// src/lib/server/repository.ts), and prisma/init.sql mirrors this schema so a
+// fresh database can be created without Prisma's migration engine.
 
 generator client {
   provider = "prisma-client-js"
@@ -54,7 +54,6 @@ model Task {
   progress          Int          @default(0)
   recordsFound      Int          @default(0)
   duplicatesRemoved Int          @default(0)
-  isDemo            Boolean      @default(true)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 

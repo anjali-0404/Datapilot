@@ -15,7 +15,15 @@ function createPool() {
       "DATABASE_URL is not set. Copy .env.example to .env and configure a PostgreSQL connection string."
     );
   }
-  return new Pool({ connectionString, max: 10 });
+  // Render Postgres requires SSL (internal + external URLs). Enable it only
+  // for hosted-style URLs so local `localhost` Postgres keeps working as-is.
+  // Matches the heuristic in scripts/init-db.mjs.
+  const needsSSL = /sslmode=require|render\.com|dpg-/i.test(connectionString);
+  return new Pool({
+    connectionString,
+    max: 10,
+    ...(needsSSL ? { ssl: { rejectUnauthorized: false } } : {}),
+  });
 }
 
 export const pool = globalThis.__dataPilotPool ?? createPool();

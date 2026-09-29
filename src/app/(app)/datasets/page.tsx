@@ -24,10 +24,13 @@ export default function DatasetsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Datasets</h1>
-          <p className="mt-1 text-sm text-muted">Every dataset produced by a collection task.</p>
+          <p className="mt-1 text-sm text-muted">
+            The output of every question you&apos;ve asked — searchable, source-linked and ready
+            to export.
+          </p>
         </div>
         <Button variant="gradient" asChild>
-          <Link href="/tasks/new"><PlusCircle className="h-4 w-4" /> New task</Link>
+          <Link href="/tasks/new"><PlusCircle className="h-4 w-4" /> New request</Link>
         </Button>
       </div>
 
@@ -35,8 +38,8 @@ export default function DatasetsPage() {
         <EmptyState
           icon={<Database className="h-5 w-5" />}
           title="No datasets yet"
-          description="Datasets appear here once a collection task completes."
-          ctaLabel="Run a task"
+          description="Ask a business question and the results land here as a clean table — with the source behind every row."
+          ctaLabel="Ask your first question"
           ctaHref="/tasks/new"
         />
       ) : (

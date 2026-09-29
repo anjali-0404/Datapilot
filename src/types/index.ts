@@ -63,7 +63,6 @@ export interface DataTask {
   duplicatesRemoved: number;
   datasetId: string | null;
   progress: number;
-  isDemo: boolean;
 }
 
 export interface Dataset {

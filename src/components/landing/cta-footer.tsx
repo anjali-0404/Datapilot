@@ -11,16 +11,17 @@ export function CtaFooter() {
         <div className="pointer-events-none absolute inset-0 grid-fade opacity-60" />
         <div className="relative mx-auto max-w-3xl px-6 text-center md:px-10">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Ready to see it build a dataset live?
+            Every record traces back to a real source.
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-muted">
-            The demo runs the full pipeline end to end with realistic sample data —
-            no setup, no API keys required.
+            No black-box answers. Ask your question, watch the pipeline run, then open any row
+            to see the organization and its official website — data you can defend in front of
+            a client, a committee or a judge.
           </p>
           <div className="mt-8 flex justify-center">
             <Button size="lg" variant="gradient" asChild>
               <Link href="/tasks/new">
-                Launch the demo <ArrowRight className="h-4 w-4" />
+                Ask your first question <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
           </div>
@@ -35,7 +36,7 @@ export function CtaFooter() {
             </div>
             <span className="text-sm font-medium text-muted">DataPilot AI</span>
           </div>
-          <p className="text-xs text-muted-2">Built for hackathon demonstration · all data shown is simulated</p>
+          <p className="text-xs text-muted-2">Reasoning by Grok 4.1 via OpenRouter · every record traceable to a verified source</p>
         </div>
       </footer>
     </>

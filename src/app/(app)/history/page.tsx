@@ -34,7 +34,7 @@ export default function HistoryPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">History</h1>
-        <p className="mt-1 text-sm text-muted">Every task you&apos;ve run in this session.</p>
+        <p className="mt-1 text-sm text-muted">Every question you&apos;ve asked, with its pipeline status and results.</p>
       </div>
 
       <Tabs value={filter} onValueChange={(v) => setFilter(v as TaskStatus | "all")}>
@@ -49,8 +49,8 @@ export default function HistoryPage() {
         <EmptyState
           icon={<HistoryIcon className="h-5 w-5" />}
           title="Nothing here yet"
-          description="Tasks matching this filter will appear here once you run them."
-          ctaLabel="Run a task"
+          description="Once you ask a question, the run shows up here — completed, in progress, paused or cancelled."
+          ctaLabel="Ask a question"
           ctaHref="/tasks/new"
         />
       ) : (

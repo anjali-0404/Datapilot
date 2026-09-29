@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Search,
   Download,
@@ -13,8 +14,11 @@ import {
   ExternalLink,
   FileJson,
   FileSpreadsheet,
+  Trash2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAppStore } from "@/store/use-app-store";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import type { Dataset } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,6 +49,8 @@ const PAGE_SIZE = 8;
 export default function DatasetExplorerPage() {
   const params = useParams<{ id: string }>();
   const datasetId = params.id;
+  const router = useRouter();
+  const deleteDataset = useAppStore((s) => s.deleteDataset);
   const [dataset, setDataset] = React.useState<Dataset | null>(null);
   const [missing, setMissing] = React.useState(false);
 
@@ -127,6 +133,16 @@ export default function DatasetExplorerPage() {
 
   const sources = Array.from(new Set(dataset.records.map((r) => r.sourceName)));
 
+  const removeDataset = async () => {
+    try {
+      await deleteDataset(dataset.id);
+      toast.success("Dataset deleted");
+      router.push("/datasets");
+    } catch {
+      toast.error("Could not delete the dataset. Please try again.");
+    }
+  };
+
   const toggleSort = (key: string) => {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -150,21 +166,31 @@ export default function DatasetExplorerPage() {
               {dataset.records.length} records · created {formatRelativeTime(dataset.createdAt)}
             </p>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="gradient">
-                <Download className="h-4 w-4" /> Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => exportDatasetAsCSV(dataset)}>
-                <FileSpreadsheet className="h-3.5 w-3.5" /> Export as CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => exportDatasetAsJSON(dataset)}>
-                <FileJson className="h-3.5 w-3.5" /> Export as JSON
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex flex-wrap items-center gap-2">
+            <ConfirmButton
+              label="Delete dataset"
+              confirmLabel="Delete permanently?"
+              onConfirm={removeDataset}
+              icon={<Trash2 className="h-3.5 w-3.5" />}
+              size="default"
+              className="h-9"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="gradient">
+                  <Download className="h-4 w-4" /> Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => exportDatasetAsCSV(dataset)}>
+                  <FileSpreadsheet className="h-3.5 w-3.5" /> Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportDatasetAsJSON(dataset)}>
+                  <FileJson className="h-3.5 w-3.5" /> Export as JSON
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 

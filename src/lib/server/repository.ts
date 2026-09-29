@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { pool, query, queryOne } from "@/lib/server/db";
-import { buildInitialStages, STAGE_META } from "@/lib/demo-engine";
+import { buildInitialStages, CONNECTORS, STAGE_META } from "@/lib/collection-engine";
 import type {
   DataTask,
   Dataset,
@@ -26,8 +26,8 @@ function newId(prefix: string) {
 export async function createTask(prompt: string): Promise<string> {
   const id = newId("task");
   await query(
-    `INSERT INTO "Task" (id, prompt, status, progress, "recordsFound", "duplicatesRemoved", "isDemo")
-     VALUES ($1, $2, 'queued', 0, 0, 0, true)`,
+    `INSERT INTO "Task" (id, prompt, status, progress, "recordsFound", "duplicatesRemoved")
+     VALUES ($1, $2, 'queued', 0, 0, 0)`,
     [id, prompt]
   );
 
@@ -126,7 +126,6 @@ interface TaskRow {
   progress: number;
   recordsFound: number;
   duplicatesRemoved: number;
-  isDemo: boolean;
   createdAt: Date;
   datasetId: string | null;
 }
@@ -194,13 +193,12 @@ async function hydrateTask(row: TaskRow): Promise<DataTask> {
     duplicatesRemoved: row.duplicatesRemoved,
     datasetId: row.datasetId,
     progress: row.progress,
-    isDemo: row.isDemo,
   };
 }
 
 export async function getTask(taskId: string): Promise<DataTask | null> {
   const row = await queryOne<TaskRow>(
-    `SELECT t.id, t.prompt, t.status, t.progress, t."recordsFound", t."duplicatesRemoved", t."isDemo",
+    `SELECT t.id, t.prompt, t.status, t.progress, t."recordsFound", t."duplicatesRemoved",
             t."createdAt", d.id AS "datasetId"
      FROM "Task" t
      LEFT JOIN "Dataset" d ON d."taskId" = t.id
@@ -213,7 +211,7 @@ export async function getTask(taskId: string): Promise<DataTask | null> {
 
 export async function listTasks(limit = 50): Promise<DataTask[]> {
   const rows = await query<TaskRow>(
-    `SELECT t.id, t.prompt, t.status, t.progress, t."recordsFound", t."duplicatesRemoved", t."isDemo",
+    `SELECT t.id, t.prompt, t.status, t.progress, t."recordsFound", t."duplicatesRemoved",
             t."createdAt", d.id AS "datasetId"
      FROM "Task" t
      LEFT JOIN "Dataset" d ON d."taskId" = t.id
@@ -432,13 +430,34 @@ interface ConnectorRow {
   contributed: string;
 }
 
-export async function listConnectorsWithContributions() {
+// ---------------------------------------------------------------------------
+// Source layers (Connector table) — which layers a question may be answered from
+// ---------------------------------------------------------------------------
+
+export interface SourceState {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  reliability: number;
+  recordsContributed: number;
+}
+
+const CONNECTOR_IDS = CONNECTORS.map((c) => c.id);
+
+/**
+ * Source layers with the number of records they have contributed. Only layers the
+ * app knows about are returned, so a stale row in an older database is ignored.
+ */
+export async function listSources(): Promise<SourceState[]> {
   const rows = await query<ConnectorRow>(
     `SELECT c.id, c.name, c.type, c.status, c.reliability, COUNT(r.id) AS contributed
      FROM "Connector" c
      LEFT JOIN "Record" r ON r."sourceName" = c.name
-     GROUP BY c.id
-     ORDER BY c.name ASC`
+     WHERE c.id = ANY($1::text[])
+     GROUP BY c.id, c.name, c.type, c.status, c.reliability
+     ORDER BY c.reliability DESC, c.name ASC`,
+    [CONNECTOR_IDS]
   );
   return rows.map((r) => ({
     id: r.id,
@@ -449,3 +468,70 @@ export async function listConnectorsWithContributions() {
     recordsContributed: Number(r.contributed),
   }));
 }
+
+/** Layers a new question is allowed to search. Never returns an empty list. */
+export async function listEnabledSourceIds(): Promise<string[]> {
+  try {
+    const rows = await query<{ id: string }>(
+      `SELECT id FROM "Connector" WHERE status = 'active' AND id = ANY($1::text[])`,
+      [CONNECTOR_IDS]
+    );
+    const ids = rows.map((r) => r.id);
+    return ids.length > 0 ? ids : [...CONNECTOR_IDS];
+  } catch (err) {
+    console.error("[sources] listEnabledSourceIds failed, searching every layer", err);
+    return [...CONNECTOR_IDS];
+  }
+}
+
+export async function setSourceStatus(id: string, status: "active" | "idle"): Promise<boolean> {
+  if (!CONNECTOR_IDS.includes(id)) return false;
+  const rows = await query<{ id: string }>(
+    `UPDATE "Connector" SET status = $2 WHERE id = $1 RETURNING id`,
+    [id, status]
+  );
+  return rows.length > 0;
+}
+
+export async function pingDatabase(): Promise<boolean> {
+  try {
+    await query("SELECT 1");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Delete / reset — removes data (and its records) permanently
+// ---------------------------------------------------------------------------
+
+export async function deleteTask(taskId: string): Promise<boolean> {
+  // Workflow has no ON DELETE CASCADE on older databases, so clear it first.
+  await query(`DELETE FROM "Workflow" WHERE "taskId" = $1`, [taskId]);
+  const rows = await query<{ id: string }>(`DELETE FROM "Task" WHERE id = $1 RETURNING id`, [taskId]);
+  return rows.length > 0;
+}
+
+export async function deleteDataset(datasetId: string): Promise<boolean> {
+  const rows = await query<{ id: string }>(`DELETE FROM "Dataset" WHERE id = $1 RETURNING id`, [datasetId]);
+  return rows.length > 0;
+}
+
+export async function clearWorkspace(): Promise<{ tasks: number; datasets: number }> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`DELETE FROM "Workflow"`);
+    const datasets = await client.query(`DELETE FROM "Dataset"`);
+    const tasks = await client.query(`DELETE FROM "Task"`);
+    await client.query("COMMIT");
+    return { tasks: tasks.rowCount ?? 0, datasets: datasets.rowCount ?? 0 };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+

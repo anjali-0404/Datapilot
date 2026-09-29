@@ -14,7 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useAppStore } from "@/store/use-app-store";
-import { DEMO_PROMPT } from "@/lib/demo-engine";
+import { SAMPLE_PROMPT } from "@/lib/collection-engine";
 import { toast } from "sonner";
 
 export function CommandPalette() {
@@ -40,13 +40,13 @@ export function CommandPalette() {
     setOpen(false);
   };
 
-  const runDemo = async () => {
+  const runSample = async () => {
     setOpen(false);
     try {
-      const id = await submitPrompt(DEMO_PROMPT);
+      const id = await submitPrompt(SAMPLE_PROMPT);
       router.push(`/tasks/${id}`);
     } catch {
-      toast.error("Could not start the demo task. Is the backend running?");
+      toast.error("Could not start the sample request. Please try again.");
     }
   };
 
@@ -70,11 +70,11 @@ export function CommandPalette() {
             <Command.Empty className="py-6 text-center text-sm text-muted">No results found.</Command.Empty>
 
             <Command.Group heading="Quick actions" className="px-2 py-1.5 text-[11px] font-medium text-muted-2 [&_[cmdk-group-heading]]:mb-1">
-              <Item onSelect={runDemo} icon={<Sparkles className="h-4 w-4 text-secondary" />}>
-                Run demo: sponsor leads for a college tech fest
+              <Item onSelect={runSample} icon={<Sparkles className="h-4 w-4 text-secondary" />}>
+                Try a sample: sponsor outreach for a college tech fest
               </Item>
               <Item onSelect={() => go("/tasks/new")} icon={<PlusCircle className="h-4 w-4" />}>
-                New collection task
+                Ask a business question
               </Item>
             </Command.Group>
 

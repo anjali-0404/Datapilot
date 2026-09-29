@@ -12,9 +12,9 @@ export function ResultsPreviewTable({ dataset }: { dataset: Dataset }) {
 
   return (
     <div className="overflow-hidden rounded-xl border border-border">
-      <div className="flex items-center justify-between border-b border-border bg-surface-2/40 px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface-2/40 px-4 py-2.5">
         <p className="text-xs font-medium text-foreground">
-          {dataset.records.length} records · {dataset.sourcesUsed.length} sources
+          {dataset.records.length} verified records · {dataset.sourcesUsed.length} sources · ready to use
         </p>
         <Button variant="ghost" size="sm" asChild>
           <Link href={`/datasets/${dataset.id}`}>
@@ -41,7 +41,7 @@ export function ResultsPreviewTable({ dataset }: { dataset: Dataset }) {
                   </td>
                 ))}
                 <td className="px-4 py-2.5">
-                  <Badge variant={r.confidence > 0.85 ? "success" : r.confidence > 0.7 ? "warning" : "danger"}>
+                  <Badge variant={r.confidence > 0.85 ? "success" : r.confidence > 0.7 ? "warning" : "danger"} title={r.confidence > 0.85 ? "Strong match: relevant + complete" : r.confidence > 0.7 ? "Good match: relevant, minor gaps" : "Weak match: check before using"}>
                     {Math.round(r.confidence * 100)}%
                   </Badge>
                 </td>

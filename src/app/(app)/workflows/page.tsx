@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/layout/empty-state";
 import { formatRelativeTime } from "@/lib/utils";
-import { STAGE_META } from "@/lib/demo-engine";
+import { STAGE_META } from "@/lib/collection-engine";
 
 export default function WorkflowsPage() {
   const workflows = useAppStore((s) => s.workflows);
@@ -29,7 +29,7 @@ export default function WorkflowsPage() {
       const id = await submitPrompt(prompt);
       router.push(`/tasks/${id}`);
     } catch {
-      toast.error("Could not start the workflow. Is the backend running?");
+      toast.error("Could not start the workflow. Please try again.");
     }
   };
 
@@ -38,10 +38,10 @@ export default function WorkflowsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Workflows</h1>
-          <p className="mt-1 text-sm text-muted">Generated workflows you can clone and reuse.</p>
+          <p className="mt-1 text-sm text-muted">Past questions you can clone and run again with one click.</p>
         </div>
         <Button variant="gradient" asChild>
-          <Link href="/tasks/new"><PlusCircle className="h-4 w-4" /> New task</Link>
+          <Link href="/tasks/new"><PlusCircle className="h-4 w-4" /> New request</Link>
         </Button>
       </div>
 
@@ -49,8 +49,8 @@ export default function WorkflowsPage() {
         <EmptyState
           icon={<WorkflowIcon className="h-5 w-5" />}
           title="No workflows yet"
-          description="Every completed task generates a reusable workflow that appears here."
-          ctaLabel="Run a task"
+          description="Ask a question and the pipeline it generated is saved here, ready to reuse."
+          ctaLabel="Ask a question"
           ctaHref="/tasks/new"
         />
       ) : (

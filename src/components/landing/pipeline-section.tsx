@@ -4,12 +4,12 @@ import { motion } from "framer-motion";
 import { Brain, ListTree, Radar as RadarIcon, ShieldCheck, Copy, PackageCheck } from "lucide-react";
 
 const STAGES = [
-  { icon: Brain, label: "Interpret", desc: "Parses your prompt into structured intent — entities, location, fields, constraints." },
-  { icon: ListTree, label: "Plan", desc: "Designs a task-specific workflow and selects the right connectors automatically." },
-  { icon: RadarIcon, label: "Collect", desc: "Executes the workflow against permitted APIs, web and file sources in parallel." },
-  { icon: ShieldCheck, label: "Validate", desc: "Checks field completeness, formats, and flags low-confidence records." },
-  { icon: Copy, label: "Deduplicate", desc: "Merges near-identical records so your dataset stays clean." },
-  { icon: PackageCheck, label: "Deliver", desc: "Publishes a searchable, exportable, source-linked dataset." },
+  { icon: Brain, label: "Interpret", desc: "Grok 4.1 turns your sentence into structured intent — what you want, where, and which columns matter." },
+  { icon: ListTree, label: "Plan", desc: "The engine picks which sources this specific question needs. Different question, different plan." },
+  { icon: RadarIcon, label: "Collect", desc: "Gathering matching organizations and pulling their real details — names, sites, locations, contacts." },
+  { icon: ShieldCheck, label: "Validate", desc: "Every website link and email is checked, and incomplete records are dropped with a reason." },
+  { icon: Copy, label: "Deduplicate", desc: "Records are compared pairwise so the same organization never shows up twice." },
+  { icon: PackageCheck, label: "Deliver", desc: "You get a searchable, analyzable table where every row cites the source it came from." },
 ];
 
 export function PipelineSection() {
@@ -18,11 +18,12 @@ export function PipelineSection() {
       <div className="mx-auto max-w-7xl px-6 md:px-10">
         <div className="max-w-2xl">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            One prompt triggers a six-stage pipeline
+            Six stages between a question and a dataset
           </h2>
           <p className="mt-4 text-muted">
-            Every request gets its own generated workflow — this isn&apos;t six fixed steps
-            running the same script, it&apos;s an AI re-planning the route each time.
+            This isn&apos;t a scraper with fixed steps. The AI re-reads your question each time
+            and decides what to collect, then the engine proves the result is clean before you
+            ever see it.
           </p>
         </div>
 

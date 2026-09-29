@@ -6,7 +6,19 @@ import type { WorkflowStage } from "@/types";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
+// Plain-English answers to "what is the system doing right now?" — shown under
+// each stage while the pipeline runs.
+const STAGE_EXPLAINERS: Record<string, string> = {
+  interpret: "AI reads your question and figures out what you're looking for, where, and which columns matter.",
+  plan: "System picks the right sources for this specific question — not a fixed script, planned per request.",
+  collect: "Gathering matching organizations and pulling their verified details.",
+  validate: "Checking every website link, email format and field — bad rows get dropped with reasons.",
+  deduplicate: "Comparing records pairwise so the same company never appears twice.",
+  deliver: "Packaging the clean table: searchable, analyzable, exportable.",
+};
+
 export function PipelineStageRow({ stage, isLast }: { stage: WorkflowStage; isLast: boolean }) {
+  const explainer = STAGE_EXPLAINERS[stage.id] ?? stage.description;
   return (
     <div className="relative flex gap-4 pb-8 last:pb-0">
       {!isLast && (
@@ -38,7 +50,7 @@ export function PipelineStageRow({ stage, isLast }: { stage: WorkflowStage; isLa
           )}
           {stage.status === "done" && <span className="text-xs text-success">Complete</span>}
         </div>
-        <p className="mt-0.5 text-xs text-muted">{stage.description}</p>
+        <p className="mt-0.5 text-xs text-muted">{explainer}</p>
 
         {stage.status === "active" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2.5">

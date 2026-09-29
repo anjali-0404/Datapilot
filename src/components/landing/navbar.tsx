@@ -17,16 +17,16 @@ export function LandingNavbar() {
 
         <nav className="hidden items-center gap-8 text-sm text-muted md:flex">
           <a href="#how-it-works" className="transition-colors hover:text-foreground">How it works</a>
-          <a href="#features" className="transition-colors hover:text-foreground">Features</a>
+          <a href="#features" className="transition-colors hover:text-foreground">Capabilities</a>
           <a href="#preview" className="transition-colors hover:text-foreground">Product</a>
         </nav>
 
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/dashboard">Dashboard</Link>
+            <Link href="/dashboard">Mission control</Link>
           </Button>
           <Button variant="gradient" size="sm" asChild>
-            <Link href="/tasks/new">Try the demo</Link>
+            <Link href="/tasks/new">Build a dataset</Link>
           </Button>
         </div>
       </div>

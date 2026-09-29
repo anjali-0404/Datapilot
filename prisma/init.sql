@@ -27,7 +27,6 @@ CREATE TABLE "Task" (
   progress INT NOT NULL DEFAULT 0,
   "recordsFound" INT NOT NULL DEFAULT 0,
   "duplicatesRemoved" INT NOT NULL DEFAULT 0,
-  "isDemo" BOOLEAN NOT NULL DEFAULT true,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -104,12 +103,11 @@ CREATE TABLE "Workflow" (
 );
 CREATE INDEX "Workflow_createdAt_idx" ON "Workflow" ("createdAt");
 
--- Seed the connector catalog (mirrors src/lib/demo-engine.ts CONNECTORS)
+-- Seed the connector catalog (mirrors src/lib/collection-engine.ts CONNECTORS)
 INSERT INTO "Connector" (id, name, type, status, reliability) VALUES
-  ('web-search', 'Web Search Index', 'web', 'active', 92),
-  ('company-registry', 'Company Registry API', 'api', 'active', 97),
-  ('news-feed', 'News & Press Feed', 'api', 'active', 88),
-  ('social-directory', 'Public Social Directory', 'web', 'active', 79),
+  ('web-search', 'Curated Web Index', 'web', 'active', 92),
+  ('company-registry', 'Company Directory', 'api', 'active', 97),
+  ('news-feed', 'Ecosystem Feed', 'api', 'active', 88),
+  ('social-directory', 'Public Directory', 'web', 'active', 79),
   ('csr-database', 'CSR / Sustainability DB', 'database', 'active', 94),
-  ('job-boards', 'Job Board Aggregator', 'api', 'active', 90),
-  ('csv-upload', 'Uploaded Files', 'file', 'idle', 100);
+  ('job-boards', 'Startup & Tech Index', 'api', 'active', 90);

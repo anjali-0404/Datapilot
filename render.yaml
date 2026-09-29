@@ -1,0 +1,37 @@
+# DataPilot — Render Blueprint (one-click deploy: Web Service + Postgres)
+# Dashboard -> New + -> Blueprint -> point at this repo.
+# Verified against Render's blueprint spec + render-examples/remix-postgres:
+# services use `env: node` (not `runtime:`), DB wiring uses
+# fromDatabase { name, property: connectionString }.
+
+services:
+  - type: web
+    name: datapilot
+    env: node
+    branch: main
+    plan: free # bump to starter for no-sleep + more RAM
+    # NOTE: preDeployCommand needs a paid instance type, so it is omitted
+    # here. The idempotent DB init runs in the start command instead (same
+    # pattern as Render's own remix-postgres example, which runs
+    # `prisma migrate deploy` in startCommand). Runtime is also where the
+    # internal DATABASE_URL hostname is guaranteed to resolve.
+    buildCommand: npm ci && npm run build
+    startCommand: npm run db:init && npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: datapilot-db
+          property: connectionString # internal URL, same region
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://datapilot.onrender.com # edit to your real service URL, then redeploy
+      - key: OPENROUTER_API_KEY
+        sync: false # OpenRouter key for real LLM intent extraction (free-tier model by default)
+      - key: AI_MODEL
+        value: x-ai/grok-4.1-fast:free # free; override with any OpenRouter model id
+
+databases:
+  - name: datapilot-db
+    plan: free
