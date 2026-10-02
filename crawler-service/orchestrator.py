@@ -1,12 +1,12 @@
 import importlib
+import re
 import logging
 import time
-from typing import Dict, List, Optional, Tuple, Callable, Awaitable
+from typing import List, Optional, Callable, Awaitable
 
 from schemas import CrawlRequest, CrawlResponse, SourceRecord, CompanyTerms
 from utils.common import normalize_company
 from utils.search_terms import build_company_terms
-from config import settings
 
 
 CollectorFunc = Callable[[CompanyTerms, logging.Logger, int], Awaitable[List[SourceRecord]]]
@@ -27,6 +27,52 @@ PLATFORM_MODULES = {
 }
 
 
+# Words that describe the *request* rather than its subject. Searching the web
+# for "find" or "contact" returns unrelated pages, so they are never used as
+# crawl subjects.
+REQUEST_WORDS = {
+    "find", "list", "show", "give", "want", "need", "looking", "search", "collect",
+    "get", "with", "from", "that", "this", "these", "those", "their", "them",
+    "have", "has", "include", "including", "about", "which", "where", "what",
+    "who", "into", "over", "more", "some", "like", "also", "please", "based",
+    "top", "best", "all", "any", "and", "for", "the", "are", "our",
+    "company", "companies", "organization", "organizations", "organisation",
+    "organisations", "firms", "businesses", "contact", "contacts", "email",
+    "emails", "details", "website", "websites", "name", "names", "phone",
+    "number", "numbers", "industry", "location", "data", "dataset", "info",
+    "information", "leads", "lead", "near", "around", "within", "across",
+    "say", "says", "think", "thinks", "users", "people", "does", "how", "why",
+}
+
+MAX_SUBJECTS = 4
+
+
+def extract_subjects(intent) -> List[str]:
+    """Pick the few goal keywords worth searching for, most specific first."""
+    words = [
+        w.strip(".-")
+        for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9&.+-]*", intent.goal)
+    ]
+    keywords = [
+        (i, w) for i, w in enumerate(words)
+        if len(w) > 2 and w.lower() not in REQUEST_WORDS
+    ]
+    # Capitalised words past the first are usually names (Zerodha, Pune) —
+    # the most specific thing to search for — so they go first.
+    is_name = lambda iw: iw[0] > 0 and iw[1][0].isupper()
+    keywords.sort(key=lambda iw: 0 if is_name(iw) else 1)
+    subjects = [normalize_company(w) for _, w in keywords]
+    if intent.industry:
+        # Right after the names, so a capped list never drops the industry.
+        subjects.insert(sum(1 for iw in keywords if is_name(iw)), normalize_company(intent.industry))
+    subjects = [s for s in dict.fromkeys(subjects) if s]  # dedupe preserving order
+    # The location is a filter, not a topic: crawling "bangalore" on its own
+    # returns city news. Keep it only when nothing else is left to search.
+    location = normalize_company(intent.location or "")
+    topical = [s for s in subjects if s != location]
+    return (topical or subjects)[:MAX_SUBJECTS] or [normalize_company(intent.goal)]
+
+
 async def load_collector(platform: str) -> Optional[CollectorFunc]:
     """Dynamically import and return the collect function for a platform."""
     module_name = PLATFORM_MODULES.get(platform)
@@ -44,14 +90,7 @@ async def run_crawl(request: CrawlRequest, logger: logging.Logger) -> CrawlRespo
     """Main orchestrator: build terms, run selected crawlers, aggregate results."""
     start_time = time.time()
 
-    # Normalize companies from intent
-    companies = [normalize_company(request.intent.goal)]
-    # Extract company names from intent goal if possible
-    # For now, use the whole goal as a search term
-    companies = [normalize_company(c) for c in request.intent.goal.split() if len(c) > 3]
-    companies = list(dict.fromkeys(companies))  # dedupe preserving order
-    if not companies:
-        companies = [normalize_company(request.intent.goal)]
+    companies = extract_subjects(request.intent)
 
     logger.info(f"Companies: {companies}")
 

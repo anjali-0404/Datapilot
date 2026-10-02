@@ -9,8 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from config import settings
-from schemas import CrawlRequest, CrawlResponse, CrawlJobStatus
-from orchestrator import run_crawl
+from schemas import CrawlResponse, CrawlJobStatus
+from orchestrator import PLATFORM_MODULES, run_crawl
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +18,12 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s"
 )
 logger = logging.getLogger("crawler-service")
+
+# ENABLED_PLATFORMS also lists platforms that have no collector yet; only
+# report the ones a crawl can actually run.
+def active_platforms() -> list:
+    return [p for p in settings.ENABLED_PLATFORMS if p in PLATFORM_MODULES]
+
 
 # In-memory job store (replace with Redis/DB in production)
 crawl_jobs: Dict[str, CrawlJobStatus] = {}
@@ -66,7 +72,7 @@ async def health_check():
         "status": "healthy",
         "service": "crawler-service",
         "version": "1.0.0",
-        "enabled_platforms": list(settings.ENABLED_PLATFORMS),
+        "enabled_platforms": active_platforms(),
     }
 
 
@@ -80,7 +86,7 @@ async def list_platforms():
                 "name": PLATFORM_DISPLAY_NAMES.get(pid, pid),
                 "category": PLATFORM_CATEGORIES.get(pid, "unknown").value,
             }
-            for pid in settings.ENABLED_PLATFORMS
+            for pid in active_platforms()
         ]
     }
 

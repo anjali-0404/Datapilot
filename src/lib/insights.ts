@@ -214,11 +214,15 @@ export function buildAnalystBrief(input: BriefInput): AnalystBrief {
   }
 
   // -- recommendation ---------------------------------------------------------
+  // A row can be both high-confidence and flagged (e.g. a validation warning),
+  // so the recommendation splits rows into two disjoint groups rather than
+  // counting such a row as both "ready" and "needs review".
+  const ready = records.filter((r) => r.confidence >= 0.85 && !r.flagged).length;
+  const review = records.filter((r) => r.flagged || r.confidence < 0.7).length;
   const recommendation = buildRecommendation({
     total,
-    strong,
-    weak,
-    flagged,
+    ready,
+    review,
     unsupported,
     thin,
     intent,
@@ -243,14 +247,13 @@ export function buildAnalystBrief(input: BriefInput): AnalystBrief {
 
 function buildRecommendation(args: {
   total: number;
-  strong: number;
-  weak: number;
-  flagged: number;
+  ready: number;
+  review: number;
   unsupported: string[];
   thin: BriefCoverage[];
   intent?: ExtractedIntent | null;
 }): string {
-  const { total, strong, weak, flagged, unsupported, thin, intent } = args;
+  const { total, ready, review, unsupported, thin, intent } = args;
 
   if (total === 0) {
     return intent?.location
@@ -259,12 +262,11 @@ function buildRecommendation(args: {
   }
 
   const steps: string[] = [];
-  if (strong > 0) {
-    steps.push(`start with the ${strong} strong match${strong === 1 ? "" : "es"} (85%+) — they are complete and source-linked`);
+  if (ready > 0) {
+    steps.push(`start with the ${ready} strong match${ready === 1 ? "" : "es"} (85%+, unflagged) — they are complete and source-linked`);
   }
-  if (weak > 0 || flagged > 0) {
-    const n = Math.max(weak, flagged);
-    steps.push(`open the source link on the ${n} weaker row${n === 1 ? "" : "s"} before acting on them`);
+  if (review > 0) {
+    steps.push(`open the source link on the ${review} flagged or weaker row${review === 1 ? "" : "s"} before acting on them`);
   }
   if (unsupported.length > 0) {
     steps.push(`pull ${listWords(unsupported)} from the source sites directly — this knowledge base does not carry them`);

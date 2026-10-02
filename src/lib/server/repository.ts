@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { pool, query, queryOne } from "@/lib/server/db";
+import { getPool, query, queryOne } from "@/lib/server/db";
 import { buildInitialStages, CONNECTORS, STAGE_META } from "@/lib/collection-engine";
 import type {
   DataTask,
@@ -241,7 +241,7 @@ export async function createDataset(params: {
   sourcesUsed: string[];
   records: SourceRecord[];
 }): Promise<string> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query("BEGIN");
     const datasetId = newId("ds");
@@ -526,7 +526,7 @@ export async function deleteDataset(datasetId: string): Promise<boolean> {
 }
 
 export async function clearWorkspace(): Promise<{ tasks: number; datasets: number }> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query("BEGIN");
     await client.query(`DELETE FROM "Workflow"`);

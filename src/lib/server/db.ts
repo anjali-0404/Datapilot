@@ -26,17 +26,21 @@ function createPool() {
   });
 }
 
-export const pool = globalThis.__dataPilotPool ?? createPool();
-
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__dataPilotPool = pool;
+// Created lazily on first use rather than at import time: `next build`
+// imports every API route module to collect its config, and an eager pool
+// would make the build fail whenever DATABASE_URL isn't present at build time.
+export function getPool(): Pool {
+  if (!globalThis.__dataPilotPool) {
+    globalThis.__dataPilotPool = createPool();
+  }
+  return globalThis.__dataPilotPool;
 }
 
 export async function query<T extends object = Record<string, unknown>>(
   text: string,
   params: unknown[] = []
 ): Promise<T[]> {
-  const result = await pool.query(text, params);
+  const result = await getPool().query(text, params);
   return result.rows as T[];
 }
 

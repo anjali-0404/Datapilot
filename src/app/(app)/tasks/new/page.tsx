@@ -16,7 +16,7 @@ import { SAMPLE_PROMPT } from "@/lib/collection-engine";
 import { toast } from "sonner";
 
 const PLATFORM_CATEGORIES = {
-  news: { label: "News & Articles", icon: Globe, desc: "RSS feeds, BBC, Hacker News, TechMeme" },
+  news: { label: "News & Articles", icon: Globe, desc: "14 RSS feeds, BBC News, The Hacker News" },
   reviews: { label: "Reviews & Ratings", icon: Star, desc: "Trustpilot, Google Play, App Store" },
   social: { label: "Social & Discussions", icon: MessageSquare, desc: "Reddit, Hacker News comments" },
   dev: { label: "Code & Dev Platforms", icon: Terminal, desc: "GitHub repositories" },

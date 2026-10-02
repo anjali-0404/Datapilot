@@ -83,7 +83,8 @@ export async function getAvailablePlatforms(): Promise<Array<{ id: string; name:
   if (!response.ok) {
     return [];
   }
-  return response.json();
+  const body: { platforms?: Array<{ id: string; name: string; category: string }> } = await response.json();
+  return body.platforms ?? [];
 }
 
 /** Human labels for the platform ids the crawler service returns. */
